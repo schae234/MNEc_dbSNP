@@ -1,0 +1,41 @@
+#fileDate=20170228
+#dbSNP_meta_start
+# Submitter Contact Information
+TYPE: CONT
+HANDLE: EGGL
+NAME: Robert Schaefer, Molly McCue
+EMAIL: schae234@umn.edu,mccu0173@umn.edu
+LAB: Equine Genetics and Genomics Lab
+INST: University of Minnesota
+||
+TYPE: PUB
+HANDLE: EGGL
+TITLE: Development of a high-density, 2M SNP genotyping array and 670k SNP imputation array for the domestic horse
+AUTHORS: Robert J. Schaefer, Mikkel Schubert, Ernest Bailey, Danika L. Bannasch, Eric Barrey, Gila Kahila Bar-Gal, Gottfried Brem, Samantha A. Brooks, Ottmar Distl, Ruedi Fries, Carrie J. Finno, Vinzenz Gerber, Bianca Haase, Vidhya Jagannathan, Ted Kalbfleisch, Tosso Leeb, Gabriella Lindgren, Maria Susana Lopes, Nuria Mach, Artur Câmara Machado, James N. MacLeod, Annette McCoy, Julia Metzger, Cecilia Penedo, Sagi Polani, Stefan Rieder, Imke Tammen, Jens Tetens, Georg Thaller, Andrea Verini-Supplizi, Claire M. Wade, Barbara Wallner, Ludovic Orlando,, James R. Mickelson, Molly E. McCue
+YEAR: 2017
+STATUS: 2
+||
+TYPE: METHOD
+HANDLE: EGGL
+ID: MNEc_SNP_Chip
+METHOD_CLASS: WGS
+SEQ_BOTH_STRANDS: YES
+TEMPLATE_TYPE: DIPLOID
+MULT_PCR_AMPLIFICATION: UNKNOWN
+MULT_CLONES_TESTED: NO
+METHOD: Whole genome, 100 base pair (bp), paired-end Illumina HiSeq reads were generated for 153 horses (including Twilight), representing 24 distinct breeds, at a depth between 1.7X and 64X, with a median depth of 13X. Read mapping was performed using the PALEOMIX genome mapping protocol to efficiently process samples in parallel and to assess individual sample quality. Each sample was mapped to the EquCab2.0 reference genome to produce a total of nearly 48 billion unique reads being aligned to the nuclear genome. Variants were identified by extending the PALEOMIX framework to identify SNPs using GATK and samtools. To maximize efficiency of variant calling in individual breeds, and to minimize bias due to variable sequencing depth of coverage, individuals were broken up into 16 variant calling groups by estimated depth of coverage and breed. Variants were called using permissive parameters in both the GATK UnifiedGenotyper as well as SAMtools ‘mpileup’ utilities. Approximately 23 million potential SNPs were called by both GATK and SAMtools. These 23 million SNPs kept for further analysis and validation. See http://http://biorxiv.org/content/early/2017/03/02/112979 for detailed information.
+||
+TYPE: POPULATION
+HANDLE: EGGL
+ID: DISCOVERY
+POPULATION: Discovery Population for the MNEc2M Array consisting of 153 horses from 23 breeds. 
+||
+TYPE:SNPASSAY
+HANDLE:EGGL
+BATCH: MNEc_23M
+MOLTYPE: Genomic
+METHOD:WGS
+COMMENT: Genotypes were discovered from Whole Genome Sequence as described in the METHOD section. Methods are further descibed in our manuscript pre-print: http://biorxiv.org/content/early/2017/03/02/112979.
+PRIVATE:
+Note: 
+#dbSNP_end_meta
