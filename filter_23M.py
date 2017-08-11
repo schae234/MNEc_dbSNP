@@ -1,10 +1,15 @@
 import pandas as pd
+import numpy as np
 import pysam 
 import sys
+import ponytools as pc
+
 from subprocess import Popen, PIPE
-from ponytools import Fasta
+from ponytools import Fasta, MNEc2MAnnot
+
 
 header_text = '''\
+##fileformat=VCFv4.1
 ##fileDate=20170228
 ##dbSNP_meta_start
 ## Submitter Contact Information
@@ -46,7 +51,6 @@ header_text = '''\
 ##PRIVATE:
 ##Note: 
 ###dbSNP_end_meta
-##fileformat=VCFv4.1
 ##filedate=20170224
 ##handle=eggl
 ##batch=MNEc23M
@@ -63,32 +67,27 @@ header_text = '''\
 ##population_id=DISCOVERY
 #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tDISCOVERY'''
 
-
-def blast(seq):
-    cmd = 'echo "{}" | blastn -db EquCab2 -perc_identity 100 -outfmt "6 sseqid pident sstart send"'.format(seq)
-    p = Popen(cmd, stdout=PIPE, stderr=sys.stderr, shell=True, env={'BLASTDB':'/project/blast/'})
-    sout = p.communicate()[0]
-    p.wait()
-    if p.returncode==0:
-        return [line.decode('utf-8').split('\t') for line in sout.splitlines()]
-    else:
-        raise ValueError('blastn failed:{}'.format(p.returncode))
-
 def main():
     # Open Reference Files
     vcf23M = pysam.VariantFile('/project/MNEc2M/VCFs/MNEc/23M_WGS.vcf.gz')
-    print('Populating MNEc2M Info',file=sys.stderr)
-    MNEc2M = pd.read_table('../Annotations/2M_SNPs_info.tsv',low_memory=False).set_index(['CHR','snp_pos']).sort_index()
-    MNEc2M.set = set(MNEc2M.index.values)
-    print('Populating MNEc670k Info',file=sys.stderr)
-    MNEc670k = pd.read_table('../MNEc670k/670SNPs/The670SNPChip.tsv').set_index(['chrom','pos']).sort_index()
-    MNEc670k.set = set(MNEc670k.index.values) 
+    print('Populating MNEc Annotation File',file=sys.stderr)
+    annot = pc.MNEcAnnot.MNEc2MAnnot()
     print('Populating FASTA files',file=sys.stderr)
     refseq = Fasta.from_file("GCF_000002305.2_EquCab2.0_genomic.fna",nickname=(r'.*chromosome ([\dX]+).*',r'chr\1'))
     fasta = Fasta.from_file("/project/Data/Fasta/EquCab2_wChrun1_2/Equus_cab_nucl_wChrUn1_2.fasta")
+    print('Reading in blast results',file=sys.stderr)
+    blast = pd.read_table("23M_WGS.blast.txt",names=['id','chr','perc','start','end'])
+    # We only want blast sites that are to chrunk sites
+    blast = blast[np.core.defchararray.startswith(blast.chr.values.astype(str),'NW')]
+    blast = blast.groupby('id').first()
+    blast = dict(zip(blast.index,zip(blast.chr,blast.start+35)))
+    
+    a = annot._annot.reset_index()
+    MNEc2M_ids = dict(zip(zip(a.chrom,a.pos),a.MNEcID))
+    MNEc670k_ids = set(a.query('in670==True').MNEcID)
+    del a
 
-    # Iterate and print
-    # open output files
+    # generate a list of the contigs
     contigs = []
     for id,chrom in refseq.chroms.items():
         if id in refseq.nicknames:
@@ -105,36 +104,39 @@ def main():
             sequence =  flank5 + var.ref + flank3
             chrom = var.chrom
             pos = var.pos
-            if var.chrom.startswith('chrUn'):
-                try:
-                    # Try to get the Chrunk position
-                    blasts = blast(sequence)
-                    if len(blasts) !=  1:
-                        continue
-                    else:
-                        bchrom,pident,bstart,bend = blasts[0]
-                        chrom = bchrom
-                        pos = int(bstart) + 35
-                except Exception as e:
-                    import ipdb; ipdb.set_trace()
+
             id = "{}.{}{}>{}".format(chrom.replace('chr',''),pos,var.ref,var.alts[0])
             ref = var.ref
             alts = ','.join(var.alts)
             qual = '{:.2f}'.format(var.qual).rstrip('0').rstrip('.')
             passing = 'PASS'
-            info = 'VQSLOD={:.4};VRT=1;FLANK-5={};FLANK-3={}'.format(
-                float(var.info['VQSLOD']),
-                flank5,
-                flank3,
-            )
+
+            # Fix the chun
+            if chrom == "chrUn":
+                # Get the blast information
+                try:
+                    chrom2,pos2 = blast[chrom+'.'+str(pos)] 
+                except KeyError as e:
+                    continue 
+                chrom = chrom2
+                pos = pos2
+
+            # Get the flank information
+            info = ';'.join([
+                'VQSLOD={:.4}'.format(float(var.info['VQSLOD'])),
+                'VRT=1',
+                'FLANK-5={}'.format(flank5),
+                'FLANK-3={}'.format(flank3),
+            ])
             fmt = '{}:{:.4}'.format(
                 var.info['AC'][0],
                 var.info['AF'][0],
             )
-            if (var.chrom,var.pos) in MNEc2M.set:
-                info += ";MNEc2M-ID={}".format(MNEc2M.ix[(var.chrom,var.pos)]['SNPId'].values[0])
-            if (var.chrom,var.pos) in MNEc670k.set:
-                info += ";MNEc670k"
+            if (var.chrom,var.pos) in MNEc2M_ids:
+                mnid = MNEc2M_ids[(var.chrom,var.pos)] 
+                info += ";MNEc2M-ID={}".format(mnid)
+                if mnid in MNEc670k_ids:
+                    info += ";MNEc670k"
             print('\t'.join(map(str,[
                 chrom,
                 pos,
@@ -151,6 +153,10 @@ def main():
                 print('Processed {} records'.format(i),file=sys.stderr)
 
 if __name__ == '__main__':
+    from IPython.core import ultratb
+    sys.excepthook = ultratb.FormattedTB(
+        mode='Verbose', color_scheme='Linux', call_pdb=1
+    )       
     main()
 
 
